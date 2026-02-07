@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Logger Pro - Unicode</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+            --warning: #f39c12;
+            --secondary: #6c757d;
+            --bg: #f1f3f5;
+            --accent: #ff5722;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Raavi", "Mangal", "Lohit Hindi", "Lohit Punjabi", sans-serif; 
+            padding: 8px; 
+            background: var(--bg);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        
+        .header-container {
+            text-align: center;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 4px;
+        }
+        .header-title {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 800;
+            background: linear-gradient(45deg, #2196F3, #9C27B0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+        }
+        .attribution {
+            font-size: 8px; 
+            color: var(--accent);
+            font-weight: bold;
+            margin-top: 2px;
+            letter-spacing: 0.5px;
+        }
+
+        .controls { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 4px; 
+            margin-bottom: 6px; 
+        }
+        
+        button, select {
+            padding: 6px 2px;
+            font-size: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-weight: 600;
+            outline: none;
+            transition: background 0.3s ease;
+        }
+
+        select { background: white; grid-column: span 3; padding: 8px; font-size: 14px; }
+        
+        /* Initial Start Style */
+        #startBtn { background: var(--success); color: white; border: none; }
+        /* Recording State Style */
+        #startBtn.recording { background: var(--danger) !important; animation: pulse 1.5s infinite; }
+        
+        #stopBtn { background: var(--secondary); color: white; border: none; }
+        #copyBtn { background: var(--primary); color: white; border: none; }
+        #undoBtn, #redoBtn { background: #adb5bd; color: white; border: none; }
+        #clearBtn { background: #343a40; color: white; border: none; }
+        #editBtn { background: var(--warning); color: white; border: none; }
+        #downloadBtn { background: #17a2b8; color: white; border: none; }
+        #fontSizeSelect { grid-column: span 1; padding: 6px; background: #fff; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .status { 
+            text-align: center;
+            font-size: 10px; 
+            color: #777; 
+            margin-bottom: 4px;
+        }
+
+        #log, #editTextarea { 
+            background: white; 
+            border: 1px solid #ddd; 
+            border-radius: 8px;
+            padding: 10px; 
+            flex-grow: 1;
+            overflow-y: auto;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+            line-height: 1.4;
+        }
+
+        #editTextarea {
+            width: 100%;
+            box-sizing: border-box;
+            resize: none;
+            display: none;
+            font-family: inherit;
+        }
+        
+        .log-entry {
+            border-bottom: 1px solid #f3f3f3;
+            padding: 4px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-container">
+        <h2 class="header-title">Speech to Text</h2>
+        <div class="attribution">BY-RAJ KAMBOJ 9465428299</div>
+    </div>
+
+    <div class="controls">
+        <select id="langSelect">
+            <option value="en-US">English</option>
+            <option value="pa-IN">Punjabi (ਪੰਜਾਬੀ)</option>
+            <option value="hi-IN">Hindi (हिन्दी)</option>
+            <option value="ur-PK">Urdu (اردو)</option>
+        </select>
+        
+        <button id="startBtn">Start</button>
+        <button id="stopBtn">Stop</button>
+        <button id="copyBtn">Copy</button>
+        
+        <button id="undoBtn">Undo</button>
+        <button id="redoBtn">Redo</button>
+        <button id="clearBtn">Clear</button>
+
+        <button id="editBtn">Edit</button>
+        <button id="downloadBtn">Save .txt</button>
+        <select id="fontSizeSelect">
+            <option value="10px">10px</option>
+            <option value="14px" selected>14px</option>
+            <option value="18px">18px</option>
+            <option value="22px">22px</option>
+            <option value="25px">25px</option>
+        </select>
+    </div>
+
+    <div class="status" id="status">Status: Idle</div>
+    
+    <div id="log"></div>
+    <textarea id="editTextarea" placeholder="Edit text..."></textarea>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const undoBtn = document.getElementById('undoBtn');
+        const redoBtn = document.getElementById('redoBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const editBtn = document.getElementById('editBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const langSelect = document.getElementById('langSelect');
+        const fontSizeSelect = document.getElementById('fontSizeSelect');
+        const log = document.getElementById('log');
+        const editTextarea = document.getElementById('editTextarea');
+        const status = document.getElementById('status');
+
+        let history = [];
+        let redoStack = [];
+        let isEditing = false;
+
+        const applyFontSize = (size) => {
+            log.style.fontSize = size;
+            editTextarea.style.fontSize = size;
+        };
+        applyFontSize(fontSizeSelect.value);
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            alert("Speech Recognition not supported.");
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = langSelect.value;
+
+            langSelect.onchange = () => { 
+                recognition.lang = langSelect.value;
+                const dir = langSelect.value === 'ur-PK' ? 'rtl' : 'ltr';
+                log.style.direction = dir;
+                editTextarea.style.direction = dir;
+                renderLog();
+            };
+
+            fontSizeSelect.onchange = () => applyFontSize(fontSizeSelect.value);
+
+            recognition.onstart = () => { 
+                status.innerText = "Listening..."; 
+                startBtn.classList.add('recording');
+                startBtn.innerText = "Recording...";
+            };
+            
+            recognition.onend = () => { 
+                status.innerText = "Stopped."; 
+                startBtn.classList.remove('recording');
+                startBtn.innerText = "Start";
+            };
+
+            recognition.onresult = (event) => {
+                const text = event.results[event.results.length - 1][0].transcript.trim();
+                if (text) {
+                    history.push(text);
+                    redoStack = []; 
+                    renderLog();
+                }
+            };
+
+            editBtn.onclick = () => {
+                if (!isEditing) {
+                    isEditing = true;
+                    editBtn.innerText = "Save";
+                    editBtn.style.background = "#2ecc71";
+                    startBtn.disabled = true;
+                    editTextarea.value = history.join('\n');
+                    log.style.display = 'none';
+                    editTextarea.style.display = 'block';
+                    editTextarea.focus();
+                } else {
+                    isEditing = false;
+                    editBtn.innerText = "Edit";
+                    editBtn.style.background = "#f39c12";
+                    startBtn.disabled = false;
+                    const newContent = editTextarea.value.trim();
+                    history = newContent ? newContent.split('\n') : [];
+                    log.style.display = 'block';
+                    editTextarea.style.display = 'none';
+                    renderLog();
+                }
+            };
+
+            undoBtn.onclick = () => {
+                if (history.length > 0) {
+                    redoStack.push(history.pop());
+                    renderLog();
+                }
+            };
+
+            redoBtn.onclick = () => {
+                if (redoStack.length > 0) {
+                    history.push(redoStack.pop());
+                    renderLog();
+                }
+            };
+
+            clearBtn.onclick = () => {
+                if (confirm("Clear all?")) {
+                    history = [];
+                    redoStack = [];
+                    renderLog();
+                }
+            };
+
+            copyBtn.onclick = () => {
+                const content = isEditing ? editTextarea.value : history.join('\n');
+                navigator.clipboard.writeText(content).then(() => {
+                    const oldText = copyBtn.innerText;
+                    copyBtn.innerText = "Done";
+                    setTimeout(() => copyBtn.innerText = oldText, 1000);
+                });
+            };
+
+            downloadBtn.onclick = () => {
+                const content = isEditing ? editTextarea.value : history.join('\n');
+                const BOM = "\uFEFF";
+                const blob = new Blob([BOM + content], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `voice-log-${new Date().toLocaleDateString()}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            function renderLog() {
+                log.innerHTML = '';
+                history.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'log-entry';
+                    div.textContent = item;
+                    if(langSelect.value === 'ur-PK') div.style.textAlign = 'right';
+                    log.appendChild(div);
+                });
+                log.scrollTop = log.scrollHeight;
+            }
+
+            startBtn.onclick = () => recognition.start();
+            stopBtn.onclick = () => recognition.stop();
+        }
+    </script>
+</body>
+</html>
